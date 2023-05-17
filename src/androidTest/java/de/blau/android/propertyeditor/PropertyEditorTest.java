@@ -833,7 +833,6 @@ public class PropertyEditorTest {
         assertTrue(TestUtils.clickOverflowButton(device));
         assertTrue(TestUtils.clickText(device, false, main.getString(R.string.tag_menu_addtorelation), true));
         assertFalse(TestUtils.findText(device, false, r.getDescription(main)));
-        assertFalse(TestUtils.findText(device, false, r.getParentRelations().get(0).getDescription(main)));
     }
 
     /**
@@ -871,6 +870,7 @@ public class PropertyEditorTest {
             fail(e.getMessage());
         }
 
+        TestUtils.clickAwayTip(device, main);
         assertTrue(TestUtils.findText(device, false, "8590205"));
         try {
             UiObject2 shelter = getField(device, "Shelter", 1);

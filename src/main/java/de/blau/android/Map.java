@@ -125,9 +125,10 @@ public class Map extends View implements IMapView {
     private boolean alwaysDrawBoundingBoxes = false;
 
     /**
-     * Locked or not
+     * RectFs used for drawing BoundingBoxes
      */
-    private boolean tmpLocked;
+    private RectF screen    = new RectF();
+    private RectF tempRectF = new RectF();
 
     /** cached zoom level, calculated once per onDraw pass **/
     private int zoomLevel = 0;
@@ -258,9 +259,7 @@ public class Map extends View implements IMapView {
                                     ((de.blau.android.layer.gpx.MapOverlay) layer).setTrack(getTracker().getTrack());
                                 }
                             } else if (!((de.blau.android.layer.gpx.MapOverlay) layer).fromFile(ctx, Uri.parse(contentId))) {
-                                db.deleteLayer(LayerType.GPX, contentId);
-                                Log.w(DEBUG_TAG, "Deleted GPX layer for " + contentId);
-                                continue; // skip
+                                layer = null; // this will delete the layer
                             }
                             break;
                         case TASKS:
@@ -270,8 +269,7 @@ public class Map extends View implements IMapView {
                             layer = new de.blau.android.layer.geojson.MapOverlay(this);
                             if (!((de.blau.android.layer.geojson.MapOverlay) layer).loadGeoJsonFile(ctx, Uri.parse(contentId), true)) {
                                 // other error, has already been toasted
-                                db.deleteLayer(LayerType.GEOJSON, contentId);
-                                continue;
+                                layer = null; // this will delete the layer
                             }
                             break;
                         case MAPILLARY:
@@ -291,6 +289,10 @@ public class Map extends View implements IMapView {
                     if (LayerType.IMAGERY.equals(type) || LayerType.OVERLAYIMAGERY.equals(type)) {
                         ImageryOffsetUtils.applyImageryOffsets(ctx, prefs, ((MapTilesLayer<Bitmap>) layer).getTileLayerConfiguration(), getViewBox());
                     }
+                } else {
+                    // remove layers from DB for which the content is missing
+                    db.deleteLayer(type, contentId);
+                    Log.w(DEBUG_TAG, "Deleted " + type + " layer for " + contentId);
                 }
             }
         }
@@ -408,6 +410,29 @@ public class Map extends View implements IMapView {
             }
         }
         return null;
+    }
+
+    /**
+     * Check if layer is visible
+     * 
+     * @param layer the layer to check
+     * @return true if the layer is visible
+     */
+    public boolean isVisible(@NonNull MapViewLayer layer) {
+        List<MapViewLayer> layers = new ArrayList<>();
+        synchronized (mLayers) {
+            layers.addAll(mLayers);
+        }
+        Collections.reverse(layers);
+        for (MapViewLayer l : layers) {
+            if (layer.equals(l)) {
+                return layer.isVisible();
+            } else if (l.getType() == LayerType.IMAGERY && l.isVisible()) {
+                return false;
+            }
+        }
+        Log.e(DEBUG_TAG, "inconsistent layer config, didn't find layer " + layer.getContentId());
+        return false;
     }
 
     /**
@@ -562,10 +587,6 @@ public class Map extends View implements IMapView {
         clipBox.set(myViewBox);
         clipBox.scale(1.1);
 
-        final Logic logic = App.getLogic();
-        final Mode tmpDrawingEditMode = logic.getMode();
-        tmpLocked = logic.isLocked();
-
         // Draw our Overlays.
         canvas.getClipBounds(canvasBounds);
 
@@ -592,19 +613,21 @@ public class Map extends View implements IMapView {
             }
         }
 
-        final boolean backgroundAlignMode = tmpDrawingEditMode == Mode.MODE_ALIGN_BACKGROUND;
-        if (zoomLevel > STORAGE_BOX_LIMIT && !backgroundAlignMode) {
+        final Logic logic = App.getLogic();
+        boolean imageryAlignMode = logic.getMode() == Mode.MODE_ALIGN_BACKGROUND;
+        if (zoomLevel > STORAGE_BOX_LIMIT && !imageryAlignMode && (!logic.isLocked() || alwaysDrawBoundingBoxes)) {
             // shallow copy to avoid modification issues
             boundingBoxes.clear();
             boundingBoxes.addAll(delegator.getBoundingBoxes());
             paintStorageBox(canvas, boundingBoxes);
         }
+
         paintGpsPos(canvas);
-        if (App.getLogic().isInEditZoomRange()) {
+        if (showCrosshairs && logic.isInEditZoomRange()) {
             paintCrosshairs(canvas);
         }
 
-        if (backgroundAlignMode) {
+        if (imageryAlignMode) {
             paintZoomAndOffset(canvas);
         }
 
@@ -667,21 +690,6 @@ public class Map extends View implements IMapView {
     }
 
     /**
-     * As of Android 4.0.4, clipping with Op.DIFFERENCE is not supported if hardware acceleration is used. (see
-     * http://android-developers.blogspot.de/2011/03/android-30-hardware-acceleration.html) Op.DIFFERENCE and clipPath
-     * supported as of 18
-     * 
-     * !!! FIXME Disable using HW clipping completely for now, see bug
-     * https://github.com/MarcusWolschon/osmeditor4android/issues/307
-     * 
-     * @param c Canvas to check
-     * @return true if the canvas supports proper clipping with Op.DIFFERENCE
-     */
-    private static boolean hasFullClippingSupport(@NonNull Canvas c) {
-        return !c.isHardwareAccelerated();
-    }
-
-    /**
      * Paint the position marker for example for creating new objects
      * 
      * Draws the marker twice with different Paaint objects to create a halo effect
@@ -689,15 +697,12 @@ public class Map extends View implements IMapView {
      * @param canvas the Canvas to draw on
      */
     private void paintCrosshairs(@NonNull Canvas canvas) {
-        //
-        if (showCrosshairs) {
-            float x = GeoMath.lonE7ToX(getWidth(), getViewBox(), crosshairsLon);
-            float y = GeoMath.latE7ToY(getHeight(), getWidth(), getViewBox(), crosshairsLat);
-            Paint paint = DataStyle.getInternal(DataStyle.CROSSHAIRS_HALO).getPaint();
-            drawCrosshairs(canvas, x, y, paint);
-            paint = DataStyle.getInternal(DataStyle.CROSSHAIRS).getPaint();
-            drawCrosshairs(canvas, x, y, paint);
-        }
+        float x = GeoMath.lonE7ToX(getWidth(), getViewBox(), crosshairsLon);
+        float y = GeoMath.latE7ToY(getHeight(), getWidth(), getViewBox(), crosshairsLat);
+        Paint paint = DataStyle.getInternal(DataStyle.CROSSHAIRS_HALO).getPaint();
+        drawCrosshairs(canvas, x, y, paint);
+        paint = DataStyle.getInternal(DataStyle.CROSSHAIRS).getPaint();
+        drawCrosshairs(canvas, x, y, paint);
     }
 
     /**
@@ -813,7 +818,7 @@ public class Map extends View implements IMapView {
      */
     private void paintZoomAndOffset(@NonNull final Canvas canvas) {
         int pos = ThemeUtils.getActionBarHeight(context) + 5 + (int) de.blau.android.layer.grid.MapOverlay.LONGTICKS_DP * 3;
-        Offset o = getBackgroundLayer().getTileLayerConfiguration().getOffset(zoomLevel);
+        Offset o = ((Main) context).getImageryAlignmentActionModeCallback().getLayerSource().getOffset(zoomLevel);
         String text = context.getString(R.string.zoom_and_offset, zoomLevel, o != null ? String.format(Locale.US, "%.5f", o.getDeltaLon()) : "0.00000",
                 o != null ? String.format(Locale.US, "%.5f", o.getDeltaLat()) : "0.00000");
         float textSize = textPaint.getTextSize();
@@ -827,48 +832,33 @@ public class Map extends View implements IMapView {
     /**
      * Dim everything that hasn't been downloaded
      * 
+     * Note this assumes that the canvas is not using HW acceleration, as Op.DIFFERENCE will not work then
+     * 
      * @param canvas the canvas we are drawing on
      * @param list list of bounding boxes that we've downloaded
      */
     private void paintStorageBox(@NonNull final Canvas canvas, @NonNull List<BoundingBox> list) {
-        if (!tmpLocked || alwaysDrawBoundingBoxes) {
-            Canvas c = canvas;
-            Bitmap b = null;
-            // Clipping with Op.DIFFERENCE is not supported when a device uses hardware acceleration
-            // drawing to a bitmap however will currently not be accelerated
-            final boolean noFullClipping = !hasFullClippingSupport(canvas);
-            if (noFullClipping) {
-                b = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
-                c = new Canvas(b);
-            } else {
-                c.save();
-            }
-            int screenWidth = getWidth();
-            int screenHeight = getHeight();
-            ViewBox viewBox = getViewBox();
-            path.reset();
-            RectF screen = new RectF(0, 0, getWidth(), getHeight());
-            for (BoundingBox bb : list) {
-                if (bb != null && viewBox.intersects(bb)) { // only need to do this if we are on screen
-                    float left = GeoMath.lonE7ToX(screenWidth, viewBox, bb.getLeft());
-                    float right = GeoMath.lonE7ToX(screenWidth, viewBox, bb.getRight());
-                    float bottom = GeoMath.latE7ToY(screenHeight, screenWidth, viewBox, bb.getBottom());
-                    float top = GeoMath.latE7ToY(screenHeight, screenWidth, viewBox, bb.getTop());
-                    RectF rect = new RectF(left, top, right, bottom);
-                    rect.intersect(screen);
-                    path.addRect(rect, Path.Direction.CW);
-                }
-            }
+        canvas.save();
+        int screenWidth = getWidth();
+        int screenHeight = getHeight();
+        screen.set(0, 0, screenWidth, screenHeight);
+        ViewBox viewBox = getViewBox();
+        path.reset();
 
-            c.clipPath(path, Region.Op.DIFFERENCE);
-            c.drawRect(screen, boxPaint);
-
-            if (noFullClipping) {
-                canvas.drawBitmap(b, 0, 0, null); // NOSONAR
-            } else {
-                c.restore();
+        for (BoundingBox bb : list) {
+            if (bb != null && viewBox.intersects(bb)) { // only need to do this if we are on screen
+                float left = GeoMath.lonE7ToX(screenWidth, viewBox, bb.getLeft());
+                float right = GeoMath.lonE7ToX(screenWidth, viewBox, bb.getRight());
+                float bottom = GeoMath.latE7ToY(screenHeight, screenWidth, viewBox, bb.getBottom());
+                float top = GeoMath.latE7ToY(screenHeight, screenWidth, viewBox, bb.getTop());
+                tempRectF.set(left, top, right, bottom);
+                tempRectF.intersect(screen);
+                path.addRect(tempRectF, Path.Direction.CW);
             }
         }
+        canvas.clipPath(path, Region.Op.DIFFERENCE);
+        canvas.drawRect(screen, boxPaint);
+        canvas.restore();
     }
 
     static final Bitmap NOICON = Bitmap.createBitmap(2, 2, Config.ARGB_8888);

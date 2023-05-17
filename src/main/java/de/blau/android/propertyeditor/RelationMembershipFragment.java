@@ -137,7 +137,7 @@ public class RelationMembershipFragment extends BaseFragment implements Property
             parents = (MultiHashMap<Long, RelationMemberPosition>) getArguments().getSerializable(PARENTS_KEY);
             elementType = getArguments().getString(ELEMENT_TYPE_KEY);
         }
-        
+
         Preferences prefs = App.getLogic().getPrefs();
         Server server = prefs.getServer();
         maxStringLength = server.getCachedCapabilities().getMaxStringLength();
@@ -153,9 +153,8 @@ public class RelationMembershipFragment extends BaseFragment implements Property
         final boolean isRelation = Relation.NAME.equals(elementType);
         for (Relation r : App.getDelegator().getCurrentStorage().getRelations()) {
             // we don't want to make it too easy to create relation loops and
-            // filter out the current element out if it is a relation and any
-            // relations that contain it
-            if (isRelation && (r.getOsmId() == osmId || r.getMember(Relation.NAME, osmId) != null)) {
+            // filter out the current element out if it is a relation
+            if (isRelation && r.getOsmId() == osmId) {
                 continue;
             }
             relationHolderList.add(new RelationHolder(context, r, limit));
@@ -364,17 +363,7 @@ public class RelationMembershipFragment extends BaseFragment implements Property
                 }
             });
 
-            roleEdit.setOnItemClickListener((parent, view, position, id) -> {
-                Log.d(DEBUG_TAG, "onItemClicked role");
-                Object o = parent.getItemAtPosition(position);
-                if (o instanceof StringWithDescription) {
-                    roleEdit.setText(((StringWithDescription) o).getValue());
-                } else if (o instanceof String) {
-                    roleEdit.setText((String) o);
-                } else if (o instanceof PresetRole) {
-                    roleEdit.setText(((PresetRole) o).getRole());
-                }
-            });
+            setRoleOnItemClickListener(roleEdit);
 
             OsmElement element = App.getDelegator().getOsmElement(Relation.NAME, relationId);
             if (element != null) {
@@ -585,6 +574,26 @@ public class RelationMembershipFragment extends BaseFragment implements Property
             this.showSpinner = showSpinner;
         }
     } // RelationMembershipRow
+
+    /**
+     * Set the OnItemClickListener for the role view
+     * 
+     * @param role the role view
+     * 
+     */
+    static void setRoleOnItemClickListener(@NonNull AutoCompleteTextView role) {
+        role.setOnItemClickListener((parent, view, position, id) -> {
+            Log.d(DEBUG_TAG, "onItemClicked role");
+            Object o = parent.getItemAtPosition(position);
+            if (o instanceof StringWithDescription) {
+                role.setText(((StringWithDescription) o).getValue());
+            } else if (o instanceof String) {
+                role.setText((String) o);
+            } else if (o instanceof PresetRole) {
+                role.setText(((PresetRole) o).getRole());
+            }
+        });
+    }
 
     /**
      * Start the action mode when a row is selected

@@ -114,9 +114,7 @@ public class TileLayerSource implements Serializable {
     public static final String TYPE_WMS          = "wms";
     public static final String TYPE_WMS_ENDPOINT = "wms_endpoint";
     static final String        TYPE_BING         = "bing";
-    static final String        TYPE_SCANEX       = "scanex";
-
-    private static final String SCANEX_HOST = "irs.gis-lab.info";
+    static final String        TYPE_SCANEX       = "scanex";      // no longer used
 
     public static final String LAYER_MAPNIK    = "MAPNIK";
     public static final String LAYER_NONE      = "NONE";
@@ -704,9 +702,6 @@ public class TileLayerSource implements Serializable {
                     loadMeta(tileUrl);
                 }
             }
-        } else if (TYPE_SCANEX.equals(type)) { // hopelessly hardwired
-            setTileUrl("http://" + SCANEX_HOST + "/?layers=" + tileUrl.toLowerCase(Locale.US) + "&request=GetTile&z={zoom}&x={x}&y={y}");
-            setImageExtension(FileExtensions.JPG);
         }
     }
 
@@ -745,14 +740,9 @@ public class TileLayerSource implements Serializable {
      */
     public static void parseImageryFile(@NonNull Context ctx, @NonNull SQLiteDatabase writeableDb, @NonNull String source, @NonNull InputStream is,
             final boolean async) throws IOException {
-        BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName(OsmXml.UTF_8)));
-        StringBuilder sb = new StringBuilder();
-        int cp;
-        while ((cp = rd.read()) != -1) {
-            sb.append((char) cp);
-        }
+        BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName(OsmXml.UTF_8))); // NOSONAR
         try {
-            EliFeatureCollection fc = EliFeatureCollection.fromJson(sb.toString());
+            EliFeatureCollection fc = EliFeatureCollection.fromJson(FileUtil.readToString(rd));
             Version formatVersion = fc.formatVersion();
             Log.i(DEBUG_TAG, "Reading imagery configuration version " + (formatVersion == null ? "unknown" : formatVersion.toString()));
             boolean fakeMultiPolygons = formatVersion == null || !formatVersion.largerThanOrEqual(Eli.VERSION_1_1);
@@ -1868,10 +1858,6 @@ public class TileLayerSource implements Serializable {
         // predefined layers
         if (id.equals(LAYER_BING)) {
             return TYPE_BING;
-        }
-
-        if (url.contains(SCANEX_HOST)) {
-            return "scanex_irs";
         }
 
         if ("Mapbox".equalsIgnoreCase(id)) {

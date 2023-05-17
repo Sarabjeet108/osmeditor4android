@@ -203,6 +203,7 @@
     <string name="search_objects_hint">Enter a JOSM filter/search expression</string>
     <string name="search_objects_use_regexps">Use regular expressions</string>
     <string name="search_objects_unsupported">Unsupported expression \"%1$s\"</string>
+    <string name="search_objects_query_overpass">Query overpass</string>
     <!--  -->
     <string name="preset_search_hint">Preset search string</string>
     <string name="preset_autopreset">Auto-preset</string>
@@ -283,6 +284,22 @@
     <!-- Safe split dialog -->
     <string name="split_safe_title">Missing relation members</string>
     <string name="split_safe_message">Neigbour relation member ways are not downloaded. Maintaining relation members ordering may depend on these.</string>
+    <!-- JS console dialog  -->
+    <string name="evaluate">Evaluate</string>
+    <string name="js_console_msg_live">Live mode!</string>
+    <string name="js_console_msg_debug">Debug mode!</string>
+    <string name="console_input_hint">Enter code here</string>
+    <string name="console_output_hint">Output will appear here</string>
+    <string name="save_code">Save code…</string>
+    <string name="load_code">Load code…</string>
+    <string name="share_code">Share code…</string>
+    <!--  Overpass console -->
+    <string name="run">Run</string>
+    <string name="overpass_result">Downloaded %1$d node(s), %2$d way(s) and %3$d relation(s).</string>
+    <string name="overpass_console">Overpass console</string>
+    <string name="select_result">Select result</string>
+    <string name="merge_result">Merge result</string>
+    <string name="overpass_query_would_overwrite">Result would overwrite changes! Query aborted.</string>
     <!--  -->
     <string name="error">Error</string>
     <string name="warning">Warning</string>
@@ -297,12 +314,6 @@
     <string name="attached_object_warning_stop">OK, ignore</string>
     <!-- debug dialog -->
     <string name="send_debug_information">Send debug info</string>
-    <!-- JS console dialog  -->
-    <string name="evaluate">Evaluate</string>
-    <string name="js_console_msg_live">Live mode!</string>
-    <string name="js_console_msg_debug">Debug mode!</string>
-    <string name="js_console_input_hint">Enter JavaScript here</string>
-    <string name="js_console_output_hint">Output will appear here</string>
     <!-- Validator dialogs  -->
     <string name="validator_title">Validator ruleset %1$s</string>
     <string name="resurvey_entries">Re-survey</string>
@@ -661,6 +672,7 @@
     <string name="toast_error_saving_bookmark">Unable to save bookmark</string>
     <string name="toast_error_loading_style">Unable to load style: %1$s</string>
     <string name="toast_only_one_source_supported">Only one source per style supported</string>
+    <string name="toast_style_file_too_large">The style file provided is too large and likely not a Mapbox-GL style.</string>
     <string name="toast_imagery_offset_download_failed">Offset download failed: %1$s</string>
     <string name="toast_download_server_version_failed">Download of server version failed for %1$s</string>
     <string name="toast_error_element_too_large">Element is too large for the property editor</string>
@@ -711,6 +723,7 @@
     <string name="osm_tags">OSM Tags</string>
     <!-- Read a file -->
     <string name="read">Read</string>
+    <string name="load">Load</string>
     <string name="overwrite">Overwrite</string>
     <string name="share">Share</string>
     <string name="share_position">Share position</string>
@@ -845,6 +858,7 @@
     <string name="menu_set_position">Position</string>
     <string name="menu_split">Split</string>
     <string name="menu_remove_node_from_way">Remove node from way</string>
+    <string name="menu_start_end_way">Start/End of Way</string>
     <string name="menu_extract">Extract node</string>
     <string name="menu_append">Append</string>
     <string name="menu_create_route">Create route</string>
@@ -882,6 +896,7 @@
     <string name="menu_transfer_download_replace">Clear and download current view</string>
     <string name="menu_transfer_load_current">Load current view</string>
     <string name="menu_transfer_load_replace">Clear and load current view</string>
+    <string name="menu_transfer_query_overpass">Query Overpass…</string>
     <string name="menu_transfer_upload">Upload data to OSM server…</string>
     <string name="menu_transfer_review">Review changes…</string>
     <string name="menu_transfer_update">Update data</string>
@@ -954,12 +969,12 @@
     <string name="menu_preset_feedback">Provide preset feedback</string>  
     <string name="menu_privacy">Privacy</string>
     <!-- Background alignment -->
-    <string name="menu_tools_background_align">Align background</string>
+    <string name="menu_tools_background_align">Align imagery</string>
     <string name="menu_tools_background_align_reset">Reset</string>
     <string name="menu_tools_background_align_zero">Zero</string>
     <string name="menu_tools_background_align_retrieve_from_db">From database</string>
     <string name="menu_tools_background_align_retrieve_from_device">From device</string>
-    <string name="menu_tools_background_align_save_db">Save to database</string>
+    <string name="menu_tools_background_align_save_db">Save to database…</string>
     <string name="menu_tools_background_align_save_device">Save to device</string>
     <string name="menu_tools_background_align_apply2all">Apply (all zoom levels)</string>
     <string name="min_max_zoom">%1$d - %2$d</string>
@@ -975,6 +990,7 @@
     <string name="menu_layers_add_photolayer">Enable photo layer</string>
     <string name="menu_layers_enable_mapillary_layer">Enable Mapillary layer</string>
     <string name="menu_layers_configure">Configure…</string>
+    <string name="menu_layers_background_align">Align imagery…</string>
     <!--  -->
     <string name="menu_tools_apply_local_offset">Apply stored offset to imagery</string>
     <string name="menu_tools_background_contrast">Contrast</string>
@@ -987,6 +1003,7 @@
     <!-- element action mode menu -->
     <string name="menu_tags">Properties</string>
     <!-- Text should be as short as possible -->
+    <string name="start_end_way_description">Go to the Start or the End of the Way</string>
     <string name="menu_history">History</string>
     <string name="menu_history_web">History (Web)</string>
     <string name="menu_merge">Join</string>
@@ -1140,12 +1157,12 @@
     <string name="config_enableLightTheme_title">Light theme</string>
     <string name="config_enableLightTheme_summary">Light and white backgrounds.</string>
     <string name="config_splitActionBarEnabled_title">Enable split action bar</string>
-    <string name="config_splitActionBarEnabled_summary">Allow split action bar, use is device specific. Requires starting Vespucci again, and Android 4.0 or later.</string>
+    <string name="config_splitActionBarEnabled_summary">Show the menu buttons at the bottom of the screen. Requires starting Vespucci again, and Android 4.0 or later.</string>
     <string name="config_disableTranslations_title">Disable translations</string>
     <string name="config_disableTranslations_summary">Use English for the user interface</string>
     <string name="config_maxInlineValues_title">Max. number of inline values</string>
     <string name="config_maxInlineValues_summary">Maximum number of inline values displayed in tag form.</string>
-    <string name="config_maxInlineValues_current">%1$d Values</string>
+    <string name="config_maxInlineValues_current">%1$d values</string>
     <string name="config_autoLockDelay_title">Time to wait before auto-locking</string>
     <string name="config_autoLockDelay_summary">Amount of seconds to wait before auto-locking, 0 turns it off.</string>
     <string name="config_autoLockDelay_current">%1$d s</string>    
@@ -1156,11 +1173,11 @@
     <string name="config_maxStrokeWidth_title">Max line width</string>
     <string name="config_maxStrokeWidth_summary">Do not draw a way thicker than this.</string>
     <string name="config_maxStrokeWidth_current">%1$d px</string>
-    <string name="config_uploadOk_title">Pending upload OK</string>
-    <string name="config_uploadOk_summary">Limit below which pending object uploads will be considered OK</string>
+    <string name="config_uploadOk_title">Pending upload OK limit</string>
+    <string name="config_uploadOk_summary">If the number of pending object uploads is below this limit the situation is considered unproblematic.</string>
     <string name="config_upload_current">%1$d objects</string>
-    <string name="config_uploadWarn_title">Pending upload warning</string>
-    <string name="config_uploadWarn_summary">Limit below which pending object uploads will have warning status.</string>
+    <string name="config_uploadWarn_title">Pending upload warning limit</string>
+    <string name="config_uploadWarn_summary">If the number of pending object uploads is below this limit it will have warning status. A pending upload count above this will have danger status.</string>
     <string name="config_uploadChecker_title">Upload reminder interval</string>
     <string name="config_uploadChecker_summary">Interval for reminders if you have unpublished changes.</string>
     <string name="config_uploadChecker_current">%1$d hours</string>
@@ -1281,6 +1298,9 @@
     <string name="config_geocoderbutton_summary">Add, edit, delete geocoders for the search functionality.</string>
     <string name="config_taginfoServer_title">Taginfo server</string>
     <string name="config_taginfoServer_summary">Taginfo server to use for preset generation</string>
+    <string name="config_overpassServer_title">Overpass server</string>
+    <string name="config_overpassServer_summary">Overpass server used for queries</string>
+            
     <!-- Layer download and storage -->
     <string name="config_category_layers">Layer download and storage</string>
     <string name="config_category_layers_summary">Tile-based background imagery download and storage.</string>
@@ -1309,6 +1329,8 @@
     <string name="config_autosaveChanges_current">%1$d</string>
     <string name="config_autosaveMaxFiles_title">Maximum number of OSC files to retain</string>
     <string name="config_autosaveMaxFiles_current">%1$d</string>
+    <string name="config_gpxAutosaveInterval_title">Minimum GPX saving interval</string>
+    <string name="config_gpxAutosaveInterval_summary">Minimum interval in minutes between saves of GPX recordings.</string>
     <!-- Miscellaneous -->
     <string name="config_category_misc">Miscellaneous</string>
     <string name="pref_enable_acra">Report app crashes</string>
@@ -1494,7 +1516,7 @@
     <string name="toast_nohelp">No help here.</string>
     <!-- Bookmarks -->
     <string name="add_bookmark">Add bookmark…</string>
-    <string name="bookmarks_desc">Add comments</string>
+    <string name="bookmarks_desc">Description</string>
     <string name="show_bookmarks">Bookmarks…</string>
     <string name="_dots">⋮</string>
     <string name="gotobookmark">Go</string>

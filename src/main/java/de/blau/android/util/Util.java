@@ -338,9 +338,13 @@ public final class Util {
      * 
      * @param context if non-null and the string has been truncated display a toast with this context
      * @param s Editable that needs to be sanitized
-     * @param maxStringLength maximum length the string is allowed to have
+     * @param maxStringLength maximum length the string is allowed to have, has to be >= 0
      */
     public static void sanitizeString(@Nullable Context context, @NonNull Editable s, int maxStringLength) {
+        if (maxStringLength < 0) {
+            Log.e(DEBUG_TAG, "sanitizeString maxStringLength " + maxStringLength);
+            maxStringLength = 0;
+        }
         // remove formating from pastes etc
         CharacterStyle[] toBeRemovedSpans = s.getSpans(0, s.length(), MetricAffectingSpan.class);
         for (CharacterStyle toBeRemovedSpan : toBeRemovedSpans) {
@@ -393,6 +397,19 @@ public final class Util {
     @NonNull
     public static Spanned fromHtml(@NonNull String html) {
         return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY, null, new UlTagHandler());
+    }
+
+    /**
+     * Wrap string in a HTML font element with a themed color
+     * 
+     * @param context an Android COntext
+     * @param attrColorRes the attr color resource
+     * @param input the input string
+     * @return the wrapped string
+     */
+    public static String withHtmlColor(@NonNull Context context, int attrColorRes, @NonNull String input) {
+        int labelColor = ThemeUtils.getStyleAttribColorValue(context, attrColorRes, R.color.material_red);
+        return String.format("<font color=\"#%s\">%s</font>", String.format("%X", labelColor).substring(2), input);
     }
 
     /**

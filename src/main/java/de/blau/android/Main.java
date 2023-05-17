@@ -99,6 +99,7 @@ import de.blau.android.contract.Schemes;
 import de.blau.android.contract.Ui;
 import de.blau.android.contract.Urls;
 import de.blau.android.dialogs.BarometerCalibration;
+import de.blau.android.dialogs.ConsoleDialog;
 import de.blau.android.dialogs.DataLoss;
 import de.blau.android.dialogs.DownloadCurrentWithChanges;
 import de.blau.android.dialogs.ElementInfo;
@@ -126,7 +127,7 @@ import de.blau.android.filter.TagFilter;
 import de.blau.android.geocode.CoordinatesOrOLC;
 import de.blau.android.geocode.Search.SearchResult;
 import de.blau.android.gpx.TrackPoint;
-import de.blau.android.imageryoffset.BackgroundAlignmentActionModeCallback;
+import de.blau.android.imageryoffset.ImageryAlignmentActionModeCallback;
 import de.blau.android.imageryoffset.ImageryOffsetUtils;
 import de.blau.android.layer.ClickableInterface;
 import de.blau.android.layer.DownloadInterface;
@@ -139,6 +140,7 @@ import de.blau.android.osm.Node;
 import de.blau.android.osm.OsmElement;
 import de.blau.android.osm.Relation;
 import de.blau.android.osm.Server;
+import de.blau.android.osm.Storage;
 import de.blau.android.osm.StorageDelegator;
 import de.blau.android.osm.UndoStorage;
 import de.blau.android.osm.ViewBox;
@@ -429,7 +431,7 @@ public class Main extends FullScreenAppCompatActivity
     private UndoListener undoListener;
 
     // hack to protect against weird state
-    private BackgroundAlignmentActionModeCallback backgroundAlignmentActionModeCallback = null;
+    private ImageryAlignmentActionModeCallback imageryAlignmentActionModeCallback = null;
 
     private Location lastLocation = null;
 
@@ -1882,8 +1884,6 @@ public class Main extends FullScreenAppCompatActivity
             menu.findItem(R.id.menu_camera).setVisible(false).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
         }
 
-        menu.findItem(R.id.menu_tools_background_align).setEnabled(map.getBackgroundLayer() != null);
-
         menu.findItem(R.id.menu_tools_calibrate_height)
                 .setVisible(sensorManager != null && sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE) != null && haveTracker);
 
@@ -2185,6 +2185,10 @@ public class Main extends FullScreenAppCompatActivity
         case R.id.menu_transfer_download_replace:
             onMenuDownloadCurrent(false);
             return true;
+        case R.id.menu_transfer_query_overpass:
+            descheduleAutoLock();
+            showOverpassConsole(this, null);
+            break;
         case R.id.menu_transfer_upload:
             confirmUpload(null);
             return true;
@@ -2397,18 +2401,6 @@ public class Main extends FullScreenAppCompatActivity
                 map.invalidate();
             });
             return true;
-        case R.id.menu_tools_background_align:
-            // protect against weird state
-            Mode oldMode = logic.getMode() != Mode.MODE_ALIGN_BACKGROUND ? logic.getMode() : Mode.MODE_EASYEDIT;
-            try {
-                backgroundAlignmentActionModeCallback = new BackgroundAlignmentActionModeCallback(this, oldMode);
-                // NOTE needs to be after instance creation
-                logic.setMode(this, Mode.MODE_ALIGN_BACKGROUND);
-                startSupportActionMode(getBackgroundAlignmentActionModeCallback());
-            } catch (IllegalStateException isex) {
-                Log.e(DEBUG_TAG, isex.getMessage());
-            }
-            return true;
         case R.id.menu_tools_apply_local_offset:
             MapTilesLayer<?> backgroundLayer = map.getBackgroundLayer();
             if (backgroundLayer != null) {
@@ -2558,6 +2550,52 @@ public class Main extends FullScreenAppCompatActivity
     }
 
     /**
+     * Show a console for writing and executing Overpass queries
+     * 
+     * @param activity the calling FragmentActivity
+     * @param text initial overpass query
+     */
+    public static void showOverpassConsole(@NonNull final FragmentActivity activity, @Nullable String text) {
+        ConsoleDialog.showDialog(activity, R.string.overpass_console, R.string.merge_result, -1, text, (context, input, merge, flag2) -> {
+            Logic logic = App.getLogic();
+            if (!merge && logic != null && logic.hasChanges()) {
+                return Util.withHtmlColor(context, R.attr.errorTextColor, context.getString(R.string.overpass_query_would_overwrite));
+            }
+            AsyncResult result = de.blau.android.overpass.Server.query(context, de.blau.android.overpass.Server.replacePlaceholders(context, input), merge);
+            if (ErrorCodes.OK == result.getCode()) {
+                if (context instanceof Main) {
+                    ((Main) context).invalidateMap();
+                }
+                Storage storage = App.getDelegator().getCurrentStorage();
+                return context.getString(R.string.overpass_result, storage.getNodeCount(), storage.getWayCount(), storage.getRelationCount());
+            } else if (ErrorCodes.NOT_FOUND == result.getCode()) {
+                return context.getString(R.string.toast_nothing_found);
+            } else {
+                return Util.withHtmlColor(context, R.attr.errorTextColor, result.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Show the JS console
+     * 
+     * @param main the current instance of Main
+     */
+    public static void showJsConsole(@NonNull final Main main) {
+        main.descheduleAutoLock();
+        ConsoleDialog.showDialog(main, R.string.tag_menu_js_console, -1, -1, null, (context, input, flag1, flag2) -> {
+            String result = de.blau.android.javascript.Utils.evalString(context, "JS Console", input, App.getLogic());
+            if (context instanceof Main) {
+                ((Main) context).runOnUiThread(() -> {
+                    ((Main) context).getMap().invalidate();
+                    ((Main) context).scheduleAutoLock();
+                });
+            }
+            return result;
+        });
+    }
+
+    /**
      * Write the contents of a todo list to a file // NOSONAR
      * 
      * @param listName the todo list name or null for all // NOSONAR
@@ -2694,23 +2732,6 @@ public class Main extends FullScreenAppCompatActivity
         logic.setZoom(getMap(), Ui.ZOOM_FOR_ZOOMTO);
         map.getViewBox().moveTo(getMap(), trackPoint.getLon(), trackPoint.getLat());
         map.invalidate();
-    }
-
-    /**
-     * Show the JS console
-     * 
-     * @param main the current instance of Main
-     */
-    public static void showJsConsole(@NonNull final Main main) {
-        main.descheduleAutoLock();
-        de.blau.android.javascript.Utils.jsConsoleDialog(main, R.string.js_console_msg_live, input -> {
-            String result = de.blau.android.javascript.Utils.evalString(main, "JS Console", input, App.getLogic());
-            main.runOnUiThread(() -> {
-                main.getMap().invalidate();
-                main.scheduleAutoLock();
-            });
-            return result;
-        });
     }
 
     /**
@@ -3356,17 +3377,20 @@ public class Main extends FullScreenAppCompatActivity
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (easyEditManager != null && easyEditManager.isProcessingAction()) {
-            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-                if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                    Log.d(DEBUG_TAG, "calling handleBackPressed");
-                    actionResult = easyEditManager.handleBackPressed();
-                    return actionResult;
-                } else { // note to avoid tons of error messages we need to
-                         // consume both events
-                    return actionResult;
-                }
+        final boolean backPressed = event.getKeyCode() == KeyEvent.KEYCODE_BACK;
+        final boolean actionDown = event.getAction() == KeyEvent.ACTION_DOWN;
+        if (easyEditManager != null && easyEditManager.isProcessingAction() && backPressed) {
+            if (actionDown) {
+                actionResult = easyEditManager.handleBackPressed();
+                return actionResult;
+            } else { // note to avoid tons of error messages we need to
+                     // consume both events
+                return actionResult;
             }
+        }
+        if (imageryAlignmentActionModeCallback != null && backPressed) {
+            imageryAlignmentActionModeCallback.close();
+            return true;
         }
         return super.dispatchKeyEvent(event);
     }
@@ -3578,15 +3602,17 @@ public class Main extends FullScreenAppCompatActivity
                 return true;
             }
             if (logic.isInEditZoomRange()) {
-                if (prefs.areSimpleActionsEnabled() || getEasyEditManager().usesLongClick()) {
-                    if (elementCount == 1 && getEasyEditManager().handleLongClick(v, clickedNodesAndWays.get(0))) {
-                        return true;
-                    }
-                    if (elementCount > 1) {
-                        longClick = true; // another ugly flag
-                        v.showContextMenu();
-                        return true;
-                    }
+                if (prefs.areSimpleActionsEnabled()) {
+                    if (getEasyEditManager().usesLongClick()) {
+                        if (elementCount == 1 && getEasyEditManager().handleLongClick(v, clickedNodesAndWays.get(0))) {
+                            return true;
+                        }
+                        if (elementCount > 1) {
+                            longClick = true; // another ugly flag
+                            v.showContextMenu();
+                            return true;
+                        }
+                    } // fall through to beep
                 } else if (getEasyEditManager().handleLongClick(v, x, y)) {
                     // editing with the screen moving under you is a pain
                     setFollowGPS(false);
@@ -4062,6 +4088,7 @@ public class Main extends FullScreenAppCompatActivity
             }
             return false;
         }
+
     }
 
     /**
@@ -4178,10 +4205,20 @@ public class Main extends FullScreenAppCompatActivity
     }
 
     /**
-     * @return the backgroundAlignmentActionModeCallback
+     * @return the current ImageryAlignmentActionModeCallback or null
      */
-    public BackgroundAlignmentActionModeCallback getBackgroundAlignmentActionModeCallback() {
-        return backgroundAlignmentActionModeCallback;
+    @Nullable
+    public ImageryAlignmentActionModeCallback getImageryAlignmentActionModeCallback() {
+        return imageryAlignmentActionModeCallback;
+    }
+
+    /**
+     * Set the current ImageryAlignmentActionModeCallback
+     * 
+     * @param callback the ImageryAlignmentActionModeCallback to set
+     */
+    public void setImageryAlignmentActionModeCallback(@Nullable ImageryAlignmentActionModeCallback callback) {
+        imageryAlignmentActionModeCallback = callback;
     }
 
     /**

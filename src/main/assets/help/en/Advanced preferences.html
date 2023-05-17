@@ -28,7 +28,7 @@
 <p>If on the non-downloaded areas will be dimmed when the screen is locked. Default: <em>off</em>.</p>
 <h3>Fullscreen mode</h3>
 <p>On devices without hardware buttons Vespucci can run in full screen mode, that means that &quot;virtual&quot; navigation buttons will be automatically hidden while the map is displayed, providing more space on the screen for the map. Depending on your device this may work well or not.</p>
-<p>In <em>Auto</em> mode we try to determine automatically if using full screen mode is sensible or not, setting it to <em>Force</em> or <em>Never</em> skips the automatic check and full screen mode will always be used or always not be used respectively.</p>
+<p>In <em>Auto</em> mode we try to determine automatically if using full screen mode is sensible or not, setting it to <em>Force</em> or <em>Never</em> skips the automatic check and full screen mode will always be used or always not be used respectively. <em>No statusbar</em> will additionally try to remove Androids status bar besides forcing full screen mode.</p>
 <p>On devices running Android 11 or higher the <em>Auto</em> mode will never turn full screen mode on as Androids gesture navigation provides a viable alternative to it.</p>
 <p>Default on Android 4.4 and later: <em>Auto</em>, 4.0 - 4.3: <em>Never</em>.</p>
 <p>You need to restart the app for changes to this setting to take effect.</p>
@@ -52,10 +52,10 @@
 <p>Use anto-aliasing when rendering OSM data. Default: <em>on</em>.</p>
 <h3>Max line width</h3>
 <p>Maximum width lines will increase to when zooming in. Default: <em>16 pixels</em>.</p>
-<h3>Pending upload OK</h3>
-<p>Limit below which pending object uploads will be considered OK. Default: <em>50 objects</em>.</p>
-<h3>Pending upload warning</h3>
-<p>Limit below which pending object uploads will have warning status. Default: <em>200 objects</em>.</p>
+<h3>Pending upload OK limit</h3>
+<p>If the number of pending object uploads is below this limit the situation is considered unproblematic. Default: <em>50 objects</em>.</p>
+<h3>Pending upload warning limit</h3>
+<p>If the number of pending object uploads is below this limit it will have warning status. A pending upload count above this will have danger status. Default: <em>200 objects</em>.</p>
 <h3>Disable feedback activity</h3>
 <p>Disable the feedback activity and use an URL instead. Default: <em>false</em>.</p>
 <h3>Upload reminder interval</h3>
@@ -176,6 +176,8 @@
 <p>Minimum number of changes required for a save to occur. Default: <em>1</em>.</p>
 <h3>Maximum number of OSC files to retain</h3>
 <p>The maximum number of OSC files the app will retain, when this limit is reached the oldest files will be deleted. Default: <em>5</em>.</p>
+<h3>Minimum GPX saving interval</h3>
+<p>Minimum interval in minutes between saves of GPX recordings. Default: <em>5 minutes</em>.</p>
 <h2>Miscellaneous</h2>
 <h3>Report app crashes</h3>
 <p>Submit ACRA crash dumps to the Vespucci developers. You will still be asked on a per event basis if you want to submit a specific crash dump, if you set this to <em>off</em> the functionalitiy is completely disabled. Default: <em>on</em>.</p>

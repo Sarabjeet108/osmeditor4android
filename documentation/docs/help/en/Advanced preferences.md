@@ -44,7 +44,7 @@ If on the non-downloaded areas will be dimmed when the screen is locked. Default
 
 On devices without hardware buttons Vespucci can run in full screen mode, that means that "virtual" navigation buttons will be automatically hidden while the map is displayed, providing more space on the screen for the map. Depending on your device this may work well or not.  
 
-In _Auto_ mode we try to determine automatically if using full screen mode is sensible or not, setting it to _Force_ or _Never_ skips the automatic check and full screen mode will always be used or always not be used respectively. 
+In _Auto_ mode we try to determine automatically if using full screen mode is sensible or not, setting it to _Force_ or _Never_ skips the automatic check and full screen mode will always be used or always not be used respectively. _No statusbar_ will additionally try to remove Androids status bar besides forcing full screen mode.
 
 On devices running Android 11 or higher the _Auto_ mode will never turn full screen mode on as Androids gesture navigation provides a viable alternative to it. 
 
@@ -92,13 +92,13 @@ Use anto-aliasing when rendering OSM data. Default: _on_.
 
 Maximum width lines will increase to when zooming in. Default: _16 pixels_.
 
-### Pending upload OK
+### Pending upload OK limit
 
-Limit below which pending object uploads will be considered OK. Default: _50 objects_.
+If the number of pending object uploads is below this limit the situation is considered unproblematic. Default: _50 objects_.
 
-### Pending upload warning
+### Pending upload warning limit
 
-Limit below which pending object uploads will have warning status. Default: _200 objects_.
+If the number of pending object uploads is below this limit it will have warning status. A pending upload count above this will have danger status. Default: _200 objects_.
 
 ### Disable feedback activity
 
@@ -340,6 +340,10 @@ Minimum number of changes required for a save to occur. Default: _1_.
 ### Maximum number of OSC files to retain
 
 The maximum number of OSC files the app will retain, when this limit is reached the oldest files will be deleted. Default: _5_.
+
+### Minimum GPX saving interval
+
+Minimum interval in minutes between saves of GPX recordings. Default: _5 minutes_.
 
 ## Miscellaneous
 

@@ -45,7 +45,6 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -69,6 +68,7 @@ import de.blau.android.exception.StorageException;
 import de.blau.android.exception.UnsupportedFormatException;
 import de.blau.android.filter.Filter;
 import de.blau.android.gpx.Track;
+import de.blau.android.imageryoffset.ImageryAlignmentActionModeCallback;
 import de.blau.android.imageryoffset.Offset;
 import de.blau.android.layer.MapViewLayer;
 import de.blau.android.osm.BoundingBox;
@@ -199,6 +199,11 @@ public class Logic {
     private static final int MAX_ELEMENTS_PER_REQUEST = 200; // same value as JOSM
 
     /**
+     * maximum depth that we recursively select relations
+     */
+    private static final int MAX_RELATION_SELECTION_DEPTH = 5;
+
+    /**
      * Stores the {@link Preferences} as soon as they are available.
      */
     private Preferences prefs;
@@ -228,10 +233,11 @@ public class Logic {
     private List<Relation> selectedRelationRelations = null;
 
     private static final int MRULIST_SIZE = 10;
+
     /**
      * last changeset comment
      */
-    private MRUList<String>  lastComments = new MRUList<>(MRULIST_SIZE);
+    private MRUList<String> lastComments = new MRUList<>(MRULIST_SIZE);
 
     private String draftComment = null;
 
@@ -445,9 +451,20 @@ public class Logic {
      */
     @Nullable
     public String undo() {
-        String name = getDelegator().getUndo().undo();
-        getDelegator().dirty();
+        final StorageDelegator delegator = getDelegator();
+        String name = delegator.getUndo().undo();
+        checkClipboard(delegator);
+        delegator.dirty();
         return name;
+    }
+
+    /**
+     * Check the clipboard for consistency post undo
+     */
+    private void checkClipboard(@NonNull StorageDelegator delegator) {
+        if (!delegator.clipboardIsEmpty()) {
+            delegator.checkClipboard();
+        }
     }
 
     /**
@@ -458,8 +475,10 @@ public class Logic {
      */
     @Nullable
     public String undo(int checkpoint) {
-        String name = getDelegator().getUndo().undo(checkpoint);
-        getDelegator().dirty();
+        final StorageDelegator delegator = getDelegator();
+        String name = delegator.getUndo().undo(checkpoint);
+        checkClipboard(delegator);
+        delegator.dirty();
         return name;
     }
 
@@ -740,36 +759,6 @@ public class Logic {
     }
 
     /**
-     * Prepares the screen for an empty map. Strokes will be updated and map will be repainted.
-     * 
-     * @param activity activity that called us
-     * @param box the new empty map-box. Don't mess up with the viewBox!
-     */
-    void newEmptyMap(@NonNull FragmentActivity activity, @NonNull ViewBox box) {
-        Log.d(DEBUG_TAG, "newEmptyMap");
-        // not checking will zap edits, given that this method will only be called when we are not downloading, not a
-        // good thing
-        if (!getDelegator().isDirty()) {
-            getDelegator().reset(false);
-            // delegator.setOriginalBox(box); not needed IMHO
-        } else if (!getDelegator().isEmpty()) {
-            // TODO show warning
-            Log.e(DEBUG_TAG, "newEmptyMap called on dirty storage");
-        }
-        // if the map view isn't drawn use an approximation for the aspect ratio of the display ... this is a hack
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        float ratio = (float) metrics.widthPixels / (float) metrics.heightPixels;
-        if (map.getHeight() != 0) {
-            ratio = (float) map.getWidth() / map.getHeight();
-        }
-        viewBox.setBorders(map, box, ratio, false);
-        map.setViewBox(viewBox);
-        DataStyle.updateStrokes(strokeWidth(viewBox.getWidth()));
-        invalidateMap();
-        activity.invalidateOptionsMenu();
-    }
-
-    /**
      * Searches for all Ways and Nodes at x,y plus the shown node-tolerance. Nodes have to lie in the mapBox.
      * 
      * @param x display-coordinate.
@@ -784,6 +773,13 @@ public class Logic {
         if (returnRelations) {
             // add any relations that the elements are members of
             result.addAll(getParentRelations(result));
+        }
+        if (clickableElements != null) {
+            for (OsmElement e : new ArrayList<OsmElement>(result)) {
+                if (!clickableElements.contains(e)) {
+                    result.remove(e);
+                }
+            }
         }
         return result;
     }
@@ -833,7 +829,7 @@ public class Logic {
         java.util.Map<Way, Double> result = new HashMap<>();
         boolean showWayIcons = prefs.getShowWayIcons();
 
-        List<Way> ways = getCLickableWays();
+        List<Way> ways = getClickableWays();
 
         for (Way way : ways) {
             if (way.isClosed() && !includeClosed) {
@@ -896,19 +892,8 @@ public class Logic {
      * @return a List of Ways
      */
     @NonNull
-    List<Way> getCLickableWays() {
-        List<Way> ways;
-        if (clickableElements != null) {
-            ways = new ArrayList<>();
-            for (OsmElement e : clickableElements) {
-                if (e instanceof Way) {
-                    ways.add((Way) e);
-                }
-            }
-        } else {
-            ways = filter != null ? filter.getVisibleWays() : getWays(map.getViewBox());
-        }
-        return ways;
+    List<Way> getClickableWays() {
+        return filter != null ? filter.getVisibleWays() : getWays(map.getViewBox());
     }
 
     /**
@@ -1074,23 +1059,14 @@ public class Logic {
     @NonNull
     List<Node> getClickableNodes() {
         List<Node> nodes;
-        if (clickableElements != null) {
-            nodes = new ArrayList<>();
-            for (OsmElement e : clickableElements) {
-                if (e instanceof Node) {
-                    nodes.add((Node) e);
-                }
+        if (filter != null) {
+            nodes = filter.getVisibleNodes();
+            if (getSelectedNodes() != null) { // selected Nodes are always visible if a filter is
+                // applied
+                nodes.addAll(getSelectedNodes());
             }
         } else {
-            if (filter != null) {
-                nodes = filter.getVisibleNodes();
-                if (getSelectedNodes() != null) { // selected Nodes are always visible if a filter is
-                    // applied
-                    nodes.addAll(getSelectedNodes());
-                }
-            } else {
-                nodes = getDelegator().getCurrentStorage().getNodes(map.getViewBox());
-            }
+            nodes = getDelegator().getCurrentStorage().getNodes(map.getViewBox());
         }
         return nodes;
     }
@@ -1194,8 +1170,8 @@ public class Logic {
     }
 
     /**
-     * Returns a Set of all the clickable OSM elements in storage (does not restrict to the current screen). Before
-     * returning the list is "pruned" to remove any elements on the exclude list.
+     * Returns a Set of all the clickable OSM elements in storage. Before returning the list is "pruned" to remove any
+     * elements on the exclude list.
      * 
      * @param viewBox the BoundingBox currently displayed
      * @param excludes The list of OSM elements to exclude from the results.
@@ -1204,8 +1180,12 @@ public class Logic {
     @NonNull
     public Set<OsmElement> findClickableElements(@NonNull BoundingBox viewBox, @NonNull List<OsmElement> excludes) {
         Set<OsmElement> result = new HashSet<>();
-        result.addAll(getDelegator().getCurrentStorage().getNodes(viewBox));
-        result.addAll(getDelegator().getCurrentStorage().getWays(viewBox));
+        final Storage currentStorage = getDelegator().getCurrentStorage();
+        result.addAll(currentStorage.getNodes(viewBox));
+        result.addAll(currentStorage.getWays(viewBox));
+        if (returnRelations) {
+            result.addAll(currentStorage.getRelations());
+        }
         for (OsmElement e : excludes) {
             result.remove(e);
         }
@@ -1540,7 +1520,7 @@ public class Logic {
             main.getEasyEditManager().invalidate(); // if we are in an action mode update menubar
         } else {
             if (mode == Mode.MODE_ALIGN_BACKGROUND) {
-                performBackgroundOffset(relativeX, relativeY);
+                performBackgroundOffset(main, relativeX, relativeY);
             } else {
                 performTranslation(map, relativeX, relativeY);
                 main.getEasyEditManager().invalidateOnDownload();
@@ -1607,26 +1587,33 @@ public class Logic {
     }
 
     /**
-     * Converts screen-coords to gps-coords and offests background layer.
+     * Converts screen-coords to gps-coords and offsets background layer.
      * 
+     * @param main current instance of Main
      * @param screenTransX Movement on the screen.
      * @param screenTransY Movement on the screen.
      */
-    private void performBackgroundOffset(final float screenTransX, final float screenTransY) {
-        int height = map.getHeight();
-        int lon = xToLonE7(screenTransX);
-        int lat = yToLatE7(height - screenTransY);
-        int relativeLon = lon - viewBox.getLeft();
-        int relativeLat = lat - viewBox.getBottom();
-        TileLayerSource osmts = map.getBackgroundLayer().getTileLayerConfiguration();
-        double lonOffset = 0d;
-        double latOffset = 0d;
-        Offset o = osmts.getOffset(map.getZoomLevel());
-        if (o != null) {
-            lonOffset = o.getDeltaLon();
-            latOffset = o.getDeltaLat();
+    private void performBackgroundOffset(@NonNull Main main, final float screenTransX, final float screenTransY) {
+        ImageryAlignmentActionModeCallback callback = main.getImageryAlignmentActionModeCallback();
+        if (callback != null) {
+            TileLayerSource osmts = callback.getLayerSource();
+            int height = map.getHeight();
+            int lon = xToLonE7(screenTransX);
+            int lat = yToLatE7(height - screenTransY);
+            int relativeLon = lon - viewBox.getLeft();
+            int relativeLat = lat - viewBox.getBottom();
+
+            double lonOffset = 0d;
+            double latOffset = 0d;
+            Offset o = osmts.getOffset(map.getZoomLevel());
+            if (o != null) {
+                lonOffset = o.getDeltaLon();
+                latOffset = o.getDeltaLat();
+            }
+            osmts.setOffset(map.getZoomLevel(), lonOffset - relativeLon / 1E7d, latOffset - relativeLat / 1E7d);
+        } else {
+            Log.e(DEBUG_TAG, "performBackgroundOffset callback null");
         }
-        osmts.setOffset(map.getZoomLevel(), lonOffset - relativeLon / 1E7d, latOffset - relativeLat / 1E7d);
     }
 
     /**
@@ -1959,7 +1946,7 @@ public class Logic {
         }
         for (OsmElement e : selection) {
             if (e instanceof Way && e.getState() != OsmElement.STATE_DELETED) {
-                performEraseWay(activity, (Way) e, true, false); // TODO maybe we don't want to delete the nodes
+                performEraseWay(activity, (Way) e, true, false);
             }
         }
         for (OsmElement e : selection) {
@@ -2527,10 +2514,15 @@ public class Logic {
      * @param node Node that is joining the ways to be unjoined.
      */
     public synchronized void performUnjoinWays(@Nullable FragmentActivity activity, @NonNull Node node) {
-        createCheckpoint(activity, R.string.undo_action_unjoin_ways);
-        displayAttachedObjectWarning(activity, node); // needs to be done before unjoin
-        getDelegator().unjoinWays(node);
-        invalidateMap();
+        try {
+            createCheckpoint(activity, R.string.undo_action_unjoin_ways);
+            displayAttachedObjectWarning(activity, node); // needs to be done before unjoin
+            getDelegator().unjoinWays(node);
+            invalidateMap();
+        } catch (OsmIllegalOperationException | StorageException ex) {
+            handleDelegatorException(activity, ex);
+            throw ex; // rethrow
+        }
     }
 
     /**
@@ -4045,6 +4037,8 @@ public class Logic {
 
     /**
      * Loads data from a file
+     *
+     * Note that this doesn't try to read the backup state 
      * 
      * @param activity the activity calling this method
      */
@@ -4052,22 +4046,24 @@ public class Logic {
 
         final int READ_FAILED = 0;
         final int READ_OK = 1;
-        final int READ_BACKUP = 2;
 
         int result = READ_FAILED;
 
         Map mainMap = activity instanceof Main ? ((Main) activity).getMap() : null;
+        final boolean hasMap = mainMap != null;
         Progress.showDialog(activity, Progress.PROGRESS_LOADING);
 
         if (getDelegator().readFromFile(activity)) {
-            viewBox.setBorders(mainMap, getDelegator().getLastBox());
+            if (hasMap) {
+                viewBox.setBorders(mainMap, getDelegator().getLastBox());
+            }
             result = READ_OK;
         }
 
         Progress.dismissDialog(activity, Progress.PROGRESS_LOADING);
         if (result != READ_FAILED) {
             Log.d(DEBUG_TAG, "syncLoadfromFile: File read correctly");
-            if (mainMap != null) {
+            if (hasMap) {
                 try {
                     viewBox.setRatio(mainMap, (float) mainMap.getWidth() / (float) mainMap.getHeight());
                 } catch (Exception e) {
@@ -4076,15 +4072,9 @@ public class Logic {
                 }
                 DataStyle.updateStrokes(STROKE_FACTOR / viewBox.getWidth());
                 loadEditingState((Main) activity, true);
-            }
-
-            if (mainMap != null) {
                 invalidateMap();
             }
             activity.invalidateOptionsMenu();
-            if (result == READ_BACKUP) {
-                Snack.barError(activity, R.string.toast_used_backup);
-            }
         } else {
             Log.d(DEBUG_TAG, "syncLoadfromFile: File read failed");
             Snack.barError(activity, R.string.toast_state_file_failed);
@@ -4494,6 +4484,7 @@ public class Logic {
         if (selectionStack.getFirst().remove(relation)) {
             setSelectedRelationNodes(null); // de-select all
             setSelectedRelationWays(null);
+            setSelectedRelationRelations(null);
             if (selectionStack.getFirst().relationCount() > 0) {
                 for (Relation r : getSelectedRelations()) { // re-select
                     setSelectedRelationMembers(r);
@@ -5072,18 +5063,36 @@ public class Logic {
      * 
      * @param r the Relation holding the members
      */
-    public synchronized void setSelectedRelationMembers(@Nullable Relation r) {
+    public void setSelectedRelationMembers(@Nullable Relation r) {
+        setSelectedRelationMembers(r, 0);
+    }
+
+    /**
+     * Set relation members to be highlighted
+     * 
+     * @param r the Relation holding the members
+     * @param depth current recursion depth
+     */
+    private synchronized void setSelectedRelationMembers(@Nullable Relation r, int depth) {
         if (r != null) {
             for (RelationMember rm : r.getMembers()) {
                 OsmElement e = rm.getElement();
                 if (e != null) {
-                    if (e.getName().equals(Way.NAME)) {
+                    switch (e.getName()) {
+                    case Way.NAME:
                         addSelectedRelationWay((Way) e);
-                    } else if (e.getName().equals(Node.NAME)) {
+                        break;
+                    case Node.NAME:
                         addSelectedRelationNode((Node) e);
-                    } else if (e.getName().equals(Relation.NAME) && (selectedRelationRelations == null || !selectedRelationRelations.contains(e))) {
-                        // break recursion if already selected
-                        addSelectedRelationRelation((Relation) e);
+                        break;
+                    case Relation.NAME:
+                        // break recursion if already selected or max depth exceeded
+                        if ((selectedRelationRelations == null || !selectedRelationRelations.contains(e)) && depth <= MAX_RELATION_SELECTION_DEPTH) {
+                            addSelectedRelationRelation((Relation) e, depth);
+                        }
+                        break;
+                    default:
+                        Log.e(DEBUG_TAG, "Unknown relation member " + e.getName());
                     }
                 }
             }
@@ -5153,11 +5162,22 @@ public class Logic {
      * 
      * @param relation the Relation to add
      */
-    public synchronized void addSelectedRelationRelation(@NonNull Relation relation) {
+    public void addSelectedRelationRelation(@NonNull Relation relation) {
+        addSelectedRelationRelation(relation, 0);
+    }
+
+    /**
+     * Add a Relation to the List of selected Relations
+     * 
+     * @param relation the Relation to add
+     * @param depth current recursion depth
+     */
+    private synchronized void addSelectedRelationRelation(@NonNull Relation relation, int depth) {
         if (selectedRelationRelations == null) {
             selectedRelationRelations = new LinkedList<>();
         }
         selectedRelationRelations.add(relation);
+        setSelectedRelationMembers(relation, depth);
     }
 
     /**
@@ -5193,6 +5213,9 @@ public class Logic {
             if (selectedRelationWays != null) {
                 selectedRelationWays.clear();
             }
+            if (selectedRelationRelations != null) {
+                selectedRelationRelations.clear();
+            }
             for (Relation r : selected) {
                 setSelectedRelationMembers(r);
             }
@@ -5210,6 +5233,7 @@ public class Logic {
         setSelectedRelation(null);
         setSelectedRelationNodes(null);
         setSelectedRelationWays(null);
+        setSelectedRelationRelations(null);
     }
 
     /**
@@ -5460,10 +5484,15 @@ public class Logic {
         if (way.getNodes().size() < 3) {
             return;
         }
-        createCheckpoint(activity, R.string.undo_action_circulize);
-        getDelegator().circulizeWay(map, way);
-        invalidateMap();
-        displayAttachedObjectWarning(activity, way);
+        try {
+            createCheckpoint(activity, R.string.undo_action_circulize);
+            getDelegator().circulizeWay(map, way);
+            invalidateMap();
+            displayAttachedObjectWarning(activity, way);
+        } catch (OsmIllegalOperationException | StorageException ex) {
+            handleDelegatorException(activity, ex);
+            throw ex;
+        }
     }
 
     /**

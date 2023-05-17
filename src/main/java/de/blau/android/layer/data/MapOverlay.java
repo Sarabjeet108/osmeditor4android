@@ -292,6 +292,7 @@ public class MapOverlay<O extends OsmElement> extends MapViewLayer
     private final List<Node>         nodesResult     = new LowAllocArrayList<>(1000);
     private final List<Way>          waysResult      = new LowAllocArrayList<>(1000);
     private final List<BoundingBox>  downloadedBoxes = new LowAllocArrayList<>();
+    private final ViewBox            viewBox         = new ViewBox();
 
     /**
      * Stuff for multipolygon support Instantiate these objects just once
@@ -447,7 +448,7 @@ public class MapOverlay<O extends OsmElement> extends MapViewLayer
         inNodeIconZoomRange = zoomLevel > DataStyle.getCurrent().getIconZoomLimit();
 
         downloadedBoxes.clear();
-        final ViewBox viewBox = map.getViewBox();
+        viewBox.set(map.getViewBox());
         for (BoundingBox box : delegator.getCurrentStorage().getBoundingBoxes()) {
             if (box.intersects(viewBox)) {
                 downloadedBoxes.add(box);
@@ -475,7 +476,6 @@ public class MapOverlay<O extends OsmElement> extends MapViewLayer
 
         int screenWidth = map.getWidth();
         int screenHeight = map.getHeight();
-        ViewBox viewBox = map.getViewBox();
 
         // first find all nodes and ways that we need to display
         nodesResult.clear();
@@ -793,8 +793,10 @@ public class MapOverlay<O extends OsmElement> extends MapViewLayer
             }
             ringPool.release(r);
         }
-
         path.setFillType(Path.FillType.EVEN_ODD);
+        if (tmpClickableElements != null && tmpClickableElements.contains(rel)) {
+            canvas.drawPath(path, wayTolerancePaint2);
+        }
         canvas.drawPath(path, paint);
     }
 
@@ -1760,7 +1762,7 @@ public class MapOverlay<O extends OsmElement> extends MapViewLayer
 
     @Override
     public void prune() {
-        ViewBox pruneBox = new ViewBox(map.getViewBox());
+        ViewBox pruneBox = new ViewBox(viewBox);
         pruneBox.scale(1.6);
         delegator.prune(pruneBox);
     }

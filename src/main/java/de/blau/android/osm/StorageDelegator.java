@@ -548,20 +548,14 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
      * @throws OsmIllegalOperationException if the operation would result in an object violating an OSM specific
      *             constraint
      */
-    public void addNodeToWay(final Node node, final Way way) throws OsmIllegalOperationException {
+    public void addNodeToWay(final Node node, final Way way) {
         dirty = true;
         undo.save(way);
-
-        try {
-            validateWayNodeCount(way.nodeCount() + 1);
-            apiStorage.insertElementSafe(way);
-            way.addNode(node);
-            way.updateState(OsmElement.STATE_MODIFIED);
-            onElementChanged(null, way);
-        } catch (StorageException e) {
-            // TODO handle OOM
-            Log.e(DEBUG_TAG, "addNodeToWay got " + e.getMessage());
-        }
+        validateWayNodeCount(way.nodeCount() + 1);
+        apiStorage.insertElementSafe(way);
+        way.addNode(node);
+        way.updateState(OsmElement.STATE_MODIFIED);
+        onElementChanged(null, way);
     }
 
     /**
@@ -684,13 +678,21 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
      */
     void validateCoordinates(final int newLatE7, final int newLonE7) throws OsmIllegalOperationException {
         if (newLatE7 > GeoMath.MAX_COMPAT_LAT_E7 || newLatE7 < -GeoMath.MAX_COMPAT_LAT_E7) {
-            Log.e(DEBUG_TAG, "lat of " + newLatE7 + " is invalid");
-            throw new OsmIllegalOperationException("lat of " + newLatE7 + " is invalid");
+            logAndThrow("lat " + newLatE7 + " is invalid");
         }
         if (newLonE7 > GeoMath.MAX_LON_E7 || newLonE7 < -GeoMath.MAX_LON_E7) {
-            Log.e(DEBUG_TAG, "lon of " + newLonE7 + " is invalid");
-            throw new OsmIllegalOperationException("lon of " + newLonE7 + " is invalid");
+            logAndThrow("lon " + newLonE7 + " is invalid");
         }
+    }
+
+    /**
+     * Log and throw an OsmIllegalOperationException
+     * 
+     * @param msg the message
+     */
+    private void logAndThrow(final String msg) {
+        Log.e(DEBUG_TAG, msg);
+        throw new OsmIllegalOperationException(msg);
     }
 
     /**
@@ -739,43 +741,39 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
             return;
         }
         dirty = true;
-        try {
-            Set<Node> nodes = new LinkedHashSet<>(wayNodes); // Guarantee uniqueness
-            invalidateWayBoundingBox(nodes);
-            int width = map.getWidth();
-            int height = map.getHeight();
-            ViewBox box = map.getViewBox();
 
-            Coordinates[] coords = Coordinates.nodeListToCoordinateArray(width, height, box, new ArrayList<>(nodes));
+        Set<Node> nodes = new LinkedHashSet<>(wayNodes); // Guarantee uniqueness
+        invalidateWayBoundingBox(nodes);
+        int width = map.getWidth();
+        int height = map.getHeight();
+        ViewBox box = map.getViewBox();
 
-            // save nodes for undo
-            for (Node nd : nodes) {
-                undo.save(nd);
-            }
+        Coordinates[] coords = Coordinates.nodeListToCoordinateArray(width, height, box, new ArrayList<>(nodes));
 
-            Coordinates center = Geometry.centroidXY(coords, true);
-
-            // caclulate average radius
-            double r = 0.0f;
-            for (Coordinates p : coords) {
-                r = r + Math.sqrt((p.x - center.x) * (p.x - center.x) + (p.y - center.y) * (p.y - center.y));
-            }
-            r = r / coords.length;
-            for (Coordinates p : coords) {
-                double ratio = r / Math.sqrt((p.x - center.x) * (p.x - center.x) + (p.y - center.y) * (p.y - center.y));
-                p.x = ((p.x - center.x) * ratio) + center.x;
-                p.y = ((p.y - center.y) * ratio) + center.y;
-            }
-            int i = 0;
-            for (Node nd : nodes) {
-                updateLatLon(nd, GeoMath.yToLatE7(height, width, box, (float) coords[i].y), GeoMath.xToLonE7(width, box, (float) coords[i].x));
-                i++;
-            }
-            // Don't call onElementChanged
-        } catch (StorageException e) {
-            // TODO handle OOM
-            Log.e(DEBUG_TAG, "circulizeWay got " + e.getMessage());
+        // save nodes for undo
+        for (Node nd : nodes) {
+            undo.save(nd);
         }
+
+        Coordinates center = Geometry.centroidXY(coords, true);
+
+        // caclulate average radius
+        double r = 0.0f;
+        for (Coordinates p : coords) {
+            r = r + Math.sqrt((p.x - center.x) * (p.x - center.x) + (p.y - center.y) * (p.y - center.y));
+        }
+        r = r / coords.length;
+        for (Coordinates p : coords) {
+            double ratio = r / Math.sqrt((p.x - center.x) * (p.x - center.x) + (p.y - center.y) * (p.y - center.y));
+            p.x = ((p.x - center.x) * ratio) + center.x;
+            p.y = ((p.y - center.y) * ratio) + center.y;
+        }
+        int i = 0;
+        for (Node nd : nodes) {
+            updateLatLon(nd, GeoMath.yToLatE7(height, width, box, (float) coords[i].y), GeoMath.xToLonE7(width, box, (float) coords[i].x));
+            i++;
+        }
+        // Don't call onElementChanged
     }
 
     /**
@@ -1179,9 +1177,7 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
         // in the way
         if (nodes.size() < 3 || (way.isEndNode(node) && (way.isClosed() ? occurances == 2 : occurances == 1))) {
             // protect against producing single node ways
-            String msg = "splitAtNode can't split " + nodes.size() + " node long way at this node";
-            Log.d(DEBUG_TAG, msg);
-            throw new OsmIllegalOperationException(msg);
+            logAndThrow("splitAtNode can't split " + nodes.size() + " node long way at this node");
         }
         validateRelationMemberCount(way.getParentRelations(), 1);
 
@@ -1202,9 +1198,7 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
         // else the user needs to split the remaining way again.
         List<Node> nodesForNewWay = splitOffNodes(way, node, fromEnd);
         if (nodesForNewWay.size() <= 1) {
-            String msg = "splitAtNode can't split, new way would have " + nodesForNewWay.size() + " node(s)";
-            Log.d(DEBUG_TAG, msg);
-            throw new OsmIllegalOperationException(msg);
+            logAndThrow("splitAtNode can't split, new way would have " + nodesForNewWay.size() + " node(s)");
         }
         List<OsmElement> changedElements = new ArrayList<>();
         try {
@@ -1535,22 +1529,17 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
      */
     public void unjoinWays(@NonNull final Node node) {
         List<Way> ways = currentStorage.getWays(node);
-        try {
-            if (ways.size() > 1) {
-                boolean first = true;
-                for (Way way : ways) {
-                    if (first) {
-                        // first way doesn't need to be changed
-                        first = false;
-                    } else {
-                        // subsequent ways
-                        replaceWayNode(node, way);
-                    }
+        if (ways.size() > 1) {
+            boolean first = true;
+            for (Way way : ways) {
+                if (first) {
+                    // first way doesn't need to be changed
+                    first = false;
+                } else {
+                    // subsequent ways
+                    replaceWayNode(node, way);
                 }
             }
-        } catch (StorageException e) {
-            // TODO handle OOM
-            Log.e(DEBUG_TAG, "unjoinWays got " + e.getMessage());
         }
     }
 
@@ -1769,18 +1758,13 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
         undo.save(way);
         way.replaceNode(existingNode, newNode);
         way.updateState(OsmElement.STATE_MODIFIED);
-        try {
-            int size = way.nodeCount();
-            if (size < Way.MINIMUM_NODES_IN_WAY || (way.isClosed() && size < Way.MINIMUM_NODES_IN_CLOSED_WAY)) {
-                Log.w(DEBUG_TAG, "replaceNodeInWay removing degenerate way " + way.getOsmId());
-                removeWay(way);
-            } else {
-                apiStorage.insertElementSafe(way);
-                onElementChanged(null, way);
-            }
-        } catch (StorageException e) {
-            // TODO handle OOM
-            Log.e(DEBUG_TAG, "replaceNodeInWay got " + e.getMessage());
+        int size = way.nodeCount();
+        if (size < Way.MINIMUM_NODES_IN_WAY || (way.isClosed() && size < Way.MINIMUM_NODES_IN_CLOSED_WAY)) {
+            Log.w(DEBUG_TAG, "replaceNodeInWay removing degenerate way " + way.getOsmId());
+            removeWay(way);
+        } else {
+            apiStorage.insertElementSafe(way);
+            onElementChanged(null, way);
         }
     }
 
@@ -2469,6 +2453,21 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
     }
 
     /**
+     * Check if the clipboard is consistent
+     * 
+     * If this is not true the clipboard will be emptied
+     * 
+     * @return true if the clipboard is ok
+     */
+    public boolean checkClipboard() {
+        if (!clipboard.check(this)) {
+            clearClipboard();
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Clear the clipboard and set the dirty flag
      */
     public void clearClipboard() {
@@ -2764,23 +2763,32 @@ public class StorageDelegator implements Serializable, Exportable, DataStorage {
         for (Node node : new ArrayList<>(apiStorage.getNodes())) {
             if (node.getState() == OsmElement.STATE_UNCHANGED) {
                 apiStorage.removeNode(node);
-                Log.e(DEBUG_TAG, "Node " + node.getOsmId() + " was unchanged in API");
+                logUnchanged(node);
             }
         }
 
         for (Way way : new ArrayList<>(apiStorage.getWays())) {
             if (way.getState() == OsmElement.STATE_UNCHANGED) {
                 apiStorage.removeWay(way);
-                Log.e(DEBUG_TAG, "Way " + way.getOsmId() + " was unchanged in API");
+                logUnchanged(way);
             }
         }
 
         for (Relation relation : new ArrayList<>(apiStorage.getRelations())) {
             if (relation.getState() == OsmElement.STATE_UNCHANGED) {
                 apiStorage.removeRelation(relation);
-                Log.e(DEBUG_TAG, "Relation " + relation.getOsmId() + " was unchanged in API");
+                logUnchanged(relation);
             }
         }
+    }
+
+    /**
+     * Log that the OsmElement is unchanged
+     * 
+     * @param e the unchanged OsmElement
+     */
+    private void logUnchanged(@NonNull OsmElement e) {
+        Log.e(DEBUG_TAG, e.getName() + " " + e.getOsmId() + " was unchanged in API");
     }
 
     /**

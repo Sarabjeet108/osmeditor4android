@@ -10,7 +10,7 @@ Tapping the lock icon will toggle the lock.
 ####  ![Unlocked](../images/unlocked.png) unlocked
 In this mode you can add and change the geometry and tags of OpenStreetMap data. *You will still need to zoom until editing is enabled.*
 
-If a small "T" is displayed on the lock icon you are in "Tag editing only" mode and will not be able to change geometries, a small "I" indicates indoor mapping mode. A long press on the icon will display a menu allowing you to switch between editing modes, for mode switching purposes it dosen't matter if the display in "locked" or "unlocked".
+If a small "T" is displayed on the lock icon you are in "Tag editing only" mode and will not be able to change geometries, a small "I" indicates indoor mapping mode. A long press on the icon will display a menu allowing you to switch between editing modes, for mode switching purposes it dosen't matter if the display is "locked" or "unlocked".
 
 All the mode options are 
 
@@ -24,9 +24,18 @@ The lock icon will always be located in the upper left corner of your devices sc
 
 ### Map and Data display
 
-Once you have downloaded some OSM data you will see it displayed over a configurable background layer. The default background is the standard "Mapnik" style map provided by openstreetmap.org, however you can choose a different background or none from the Preferences. The style of the OSM data displayed on top of the background layer can be fully customized, however the standard "Color round nodes" or for "Pen round nodes" should work for most situations, the latter has smaller "touch areas" mainly for working with a pen. Depending on the device it may however work better for you than the default.
+Once you have downloaded some OSM data you will see it displayed over a background layer. The default background is the standard "Mapnik" style map provided by openstreetmap.org, however you can change the configuration by using the layer control. The styling of the OSM data displayed on top of the background layer can be fully customized, but the standard "Color round nodes" or for "Pen round nodes" should work for most situations, the later has smaller "touch areas" mainly for working with a pen.
 
-Note: the map tiles are cached on device and only deleted if explicitly flushed. In principle you can pre-download the tiles for the area you want to work on and so spare yourself the need to access them online while outside. 
+Note: the map images are cached on device and are only deleted if explicitly flushed. If you need to have background images available without network connectivity see [custom imagery with MBtiles](http://vespucci.io/tutorials/custom_imagery_mbtiles/).
+
+### Nearby point-of-interest display
+
+A nearby point-of-interest display can be shown by pulling the handle in the middle and top of the bottom menu bar up.
+
+The view will include a filtered view of all "POI"s displayed on the current map view. If no explicit filter is set this is limited to objects that have a key with one of
+_shop_, _amenity_, _leisure_, _tourism_, _craft_, _office_ or _emergency_. If an explicit filter is set, that is a tag filter or a preset filter, or a mode (_Indoor_ and _C_-mode) is selected that sets a filter the display will display objects that are allowed by the filter. For example if _Indoor_ mode is selected, the display will only show POIs on the currently selected level. 
+
+Tapping an entry in the display will center the map on the object and select it, tapping it a second time (just as on the map display) will start the property editor, in _Tag only_ mode the property editor will start directly as expected. The POI entries are highlighted with the same validation indication as map icons, see [validation styling](https://github.com/MarcusWolschon/osmeditor4android/blob/master/src/main/assets/styles/Color-round.xml#L39).
 
 ### Layer control
 
@@ -42,6 +51,7 @@ The layer dialog supports the following actions on the layer entries:
         * __Flush tile cache__ Flush the on device cache for this layer.
         * __Background properties__ Set contrast of layer.
         * __Info__ Display information on the currently selected imagery.
+        * __Align imagery...__ start the imagery alignment mode to adjust this layer. This can be done manually of by querying the "Imagery Offset" database.
     * Custom imagery tile based layers (additionally to the above):
         * __Edit custom imagery configuration__ edit the configuration of the imagery, for example the URL.
     * Mapbox Vector Tile layers (additionally to _Tile based layers_):
@@ -81,7 +91,7 @@ The layer dialog supports the following actions on the layer entries:
     * __Add background imagery layer__ Adds a tile based imagery layer from the internal configuration, which can be from ELI or JOSM, or a custom imagery layer.
     * __Add overlay imagery layer__ As above but assumes that the layer is partially transparent.
     * __Add layer from GPX file__ Adds a layer from a GPX file on device.
-    * __Download GPX track__ Download a GPX file from the OSM API for the user and create a layer from it. Note that only GPX tracks with their starting point in the area currently displayed will be available for selection, this is a limitation of the current OSM API.
+    * __Download GPX track__ Download a GPX [track that you have previously uploaded to the OSM website](https://www.openstreetmap.org/traces/mine), and create a layer from it. Note that only GPX tracks with their starting point in the area currently displayed will be available for selection, this is a limitation of the current OSM API.
     * __Add custom imagery__ Adds a custom imagery configuration, this can then be used just 
       as any tile based imagery source, the entries can be managed in the [preferences](Preferences.md).
     * __Add layer from MVT style__ Load a Mapbox-GL style file that has a "sources" section and create a layer. 
@@ -93,15 +103,17 @@ or as decribed above..
 
 ### Highlighting of data issues
 
-With the standard map style certain data issues will be highlighted in magenta, these are
+The included map styles highlight certain data issues, these are
 
-* objects with 'fixme' and 'todo' tags (case insensitive)
-* ways with 'highway=road'
-* ways with 'highway' set to one of: motorway, motorway_link, trunk, trunk_link, primary, primary_link, secondary, secondary_link, tertiary, residential, unclassified, living_street and no 'name' or 'ref' tag
-* relations with no 'type' tag
-* certain points of interest that haven't been edited or verified lately. Default time that must have past since the last edit is 1 year.  
-* untagged ways that are not a member of a relation
-* unconnected highway end nodes, if the end nodes a near to a highway object that they could be connected to, the node is highlighted
+* objects with 'fixme' and 'todo' tags (case insensitive) _magenta_
+* ways with 'highway=road' _magenta_
+* ways with 'highway' set to one of: motorway, motorway_link, trunk, trunk_link, primary, primary_link, secondary, secondary_link, tertiary, residential, unclassified, living_street and no 'name' or 'ref' tag _magenta_
+* relations with no 'type' tag _magenta_
+* certain points of interest that haven't been edited or verified lately. Default time that must have past since the last edit is 1 year. _yellow_
+* untagged ways that are not a member of a relation _magenta_
+* unconnected highway end nodes, if the end nodes a near to a highway object that they could be connected to, the node is highlighted _magenta_
+
+The colours can be changed in the [data style](http://vespucci.io/tutorials/data_styling/#validation-styling).
 
 ### Indoor mode
    
@@ -117,8 +129,12 @@ Tapping the icon once will undo the last operation. A long press will display a 
 
 ### ![Camera](../images/camera.png) Camera
 
-Start a camera app, and add the resulting photograph to the photo layer if it is enabled. The photograph itself should be stored in the Vespucci/Pictures 
-directory, however this depends on the specific camera app. Note that because of restrictions in recent versions of Android you will need to configure the target app in the preferences if you are not happy with the standard app on your device. See [16.1 release notes](16.1.0 Release notes.md).
+Start a camera app, and add the resulting photograph to the photo layer if it is enabled. The photograph itself will be stored in the Vespucci/Pictures 
+directory, however if this works depends on the specific camera app.  Photographs may also be "shared" from other apps into Vespucci, these can be viewed, just as images taken via the camera button in Vespuccis image viewer.
+
+Notes 
+* Because of restrictions in recent versions of Android you will need to configure the target app in the preferences if you are not happy with the standard app on your device. See [16.1 release notes](16.1.0 Release notes.md).
+* OpenStreetMap currently does not provide an upload/storage facility for large numbers of images (you can store individual images of interest in the OSM wiki).  
 
 ### ![Location](../images/menu_gps.png) Location
 
@@ -155,6 +171,7 @@ Select either the transfer icon ![Transfer](../images/menu_transfer.png) or the 
  * **Review changes...** - review current changes
  * **Download current view** - download the area visible on the screen and merge it with existing data *(requires network connectivity)*
  * **Clear and download current view** - clear any data in memory and then download the area visible on the screen *(requires network connectivity)*
+ * **Query Overpass...** - run a query against a Overpass API server *(requires network connectivity)*
  * **Close current changeset** - manually close the current changeset *(only available if a changeset is open)*
  * **Location based auto download** - download an area around the current location automatically *(requires network connectivity)* *(requires GPS)*
  * **Pan and zoom auto download** - download the area shown in the current screen automatically *(requires network connectivity)*
@@ -185,10 +202,10 @@ Show the user preference screens. The settings are split into two sets: the firs
 
 ### ![Tools](../images/menu_tools.png) Tools
 
- * **Align background** - align the current background layer, this can be done manually or from the image alignment database *(requires network connectivity)*
  * **Apply stored offset to imagery** - apply stored offset, if it exists, for the current background layer 
  * **More imagery tools**
-    * **Update imagery layer configuration** - download a current version of the imagery layer configuration. *(requires network connectivity)*
+    * **Update configuration** - download a current version of the imagery layer configuration from the JOSM repository. Currently the default configuration is provided by the Editor Layer Index, not JOSM. *(requires network connectivity)*
+    * **Update configuration from ELI** - download a current version of the imagery layer configuration from the Editor Layer Index repository. *(requires network connectivity)*
     * **Flush all tile caches** - empty all on device tile caches. 
  * **Reset address prediction** - reset the current address prediction data, will seeded from loaded data if possible.
  * **Reset OAuth** - reset the OAuth tokens, this will force re-authorisation the next time you upload.
@@ -208,7 +225,8 @@ Search for a location and pan to it with the OpenStreetMap Nominatim or Photon s
 
 ### Search for objects
 
-Search for OSM objects in the loaded data using JOSMs search/filter expressions. See [JOSM filter documentation](http://vespucci.io/tutorials/object_search/) for more information.
+Search for OSM objects in the loaded data using JOSMs search/filter expressions. See [JOSM filter documentation](http://vespucci.io/tutorials/object_search/) for more information. Besides searching in the loaded data alternatively you can create a 
+Overpass API query and use that to download data.
 
 ### Tag-Filter *(checkbox)*
 

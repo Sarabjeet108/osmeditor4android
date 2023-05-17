@@ -1,5 +1,4 @@
 ## Vespucci Features
-_Documentation for Vespucci 17.0_
 
 This list is likely not really complete, but gives some idea of the supported functionality.
 
@@ -64,7 +63,7 @@ This list is likely not really complete, but gives some idea of the supported fu
 |                           | JavaScript scripting support                             |
 |                           | Create custom presets on the fly                         |
 |__Backgrounds and Layers__ |                                                          |
-|                           | Supports the JOSM Imagery Sources                        |
+|                           | Supports the JOSM and Editor Layer Index Imagery Sources |
 |                           | On device tile caching                                   | 
 |                           | Custom background and overlays                           |
 |                           | OpenAerialMap support                                    |
@@ -118,5 +117,10 @@ This list is likely not really complete, but gives some idea of the supported fu
 |                           | OLC support                                              |
 |                           | Validate URLs from property editor                       |
 |                           | Search for objects in loaded data (JOSM syntax)          |
+|                           | Query the Overpass API                                   |
+|                           | Generate Overpass queries from JOSM search language      |
 |                           | Barometer support                                        |
 |                           | On-device help                                           |
+|                           | Automatically save edits and GPX tracks at set intervals |
+|                           | Display of nearby POIs                                   |
+|                           | Support for external measuring apps                      |
